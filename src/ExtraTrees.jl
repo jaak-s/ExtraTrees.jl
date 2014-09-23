@@ -1,0 +1,5 @@
+module ExtraTrees
+
+# package code goes here
+
+end # module
