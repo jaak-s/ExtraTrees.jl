@@ -2,7 +2,7 @@ module ExtraTrees
 
 using Distributions
 
-export buildExtraTrees
+export extraTrees
 
 abstract BinaryTree
 
@@ -17,7 +17,7 @@ type Leaf <: BinaryTree
   value::Float32
 end
 
-type RegrExtraTrees
+type RegressionET
   ntry::Int
   nodesize::Int
   trees::Vector{BinaryTree}
@@ -46,16 +46,16 @@ function next!(s::Sampler)
   return tmp
 end
 
-type RegrData
+type RegressionData
   x::Matrix{Float64}
   y::Vector{Float64}
   y2::Vector{Float64}
   N::Int
   
-  RegrData(x,y) = new(x, y, y.^2, length(y))
+  RegressionData(x,y) = new(x, y, y.^2, length(y))
 end
 
-function trainTree(et::RegrExtraTrees, data::RegrData, ids, sampler::Sampler)
+function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler)
   if length(ids) < et.nodesize
     return Leaf(mean(data.y[ids]))
   end
@@ -122,13 +122,13 @@ function trainTree(et::RegrExtraTrees, data::RegrData, ids, sampler::Sampler)
   return Node(leftNode, rightNode, bestCol, bestCut)
 end
 
-function buildExtraTrees(x, y::Vector{Float64};
+function extraTrees(x, y::Vector{Float64};
                             ntree    = 500, 
                             ntry     = max(1, floor(size(x,1) / 2)),
                             nodesize = 5)
-  data  = RegrData(x, y)
+  data  = RegressionData(x, y)
   trees = BinaryTree[]
-  et    = RegrExtraTrees(ntry, nodesize, trees)
+  et    = RegressionET(ntry, nodesize, trees)
   sampler = Sampler([1:size(x,2)])
   for i in 1:ntree
     push!(trees, trainTree(et, data, 1:length(y), sampler) )
