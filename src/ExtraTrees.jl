@@ -3,6 +3,7 @@ module ExtraTrees
 using Distributions
 
 export extraTrees
+export predict
 
 abstract BinaryTree
 
@@ -129,7 +130,7 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
   return Node(leftNode, rightNode, bestCol, bestCut)
 end
 
-function extraTrees(x, y::Vector{Float64};
+function extraTrees(x::Matrix{Float64}, y::Vector{Float64};
                             ntree    = 500, 
                             ntry     = max(1, floor(size(x,1) / 3)),
                             nodesize = 5)
@@ -141,6 +142,33 @@ function extraTrees(x, y::Vector{Float64};
     push!(trees, trainTree(et, data, 1:length(y), sampler) )
   end
   return et
+end
+
+function predict(tree::Leaf, x::Vector{Float64})
+  return tree.value
+end
+
+function predict(tree::Node, x::Vector{Float64})
+  if x[tree.col] < tree.cut
+    return predict(tree.left, x)
+  else
+    return predict(tree.right, x)
+  end
+end
+
+function predict(et::RegressionET, x::Vector{Float64})
+  sum = 0.0
+  for tree = et.trees
+    sum += predict(tree, x)
+  end
+  return sum / length(et.trees)
+end
+
+function predict(et::RegressionET, Xnew::Matrix{Float64})
+  map(
+    i -> predict(et, vec(Xnew[i,:])),
+    1:size(Xnew, 1)
+  )
 end
 
 end # module
