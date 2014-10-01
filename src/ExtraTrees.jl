@@ -131,7 +131,7 @@ end
 
 function extraTrees(x, y::Vector{Float64};
                             ntree    = 500, 
-                            ntry     = max(1, floor(size(x,1) / 2)),
+                            ntry     = max(1, floor(size(x,1) / 3)),
                             nodesize = 5)
   data  = RegressionData(x, y)
   trees = BinaryTree[]
