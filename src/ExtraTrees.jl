@@ -112,9 +112,16 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
       break
     end
   end
-  left = data.x[ids, bestCol] .< bestCut
-  idsLeft  = find(left)
-  idsRight = find(!left)
+  ## splitting samples
+  idsLeft  = Int64[]
+  idsRight = Int64[]
+  for i = ids
+    if data.x[i, bestCol] < bestCut
+      push!(idsLeft, i)
+    else
+      push!(idsRight, i)
+    end
+  end
   
   leftNode  = trainTree(et, data, idsLeft, sampler)
   rightNode = trainTree(et, data, idsRight, sampler)
