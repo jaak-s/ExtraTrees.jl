@@ -19,14 +19,15 @@ type Leaf <: BinaryTree
 end
 
 type RegressionET
-  ntry::Int
-  nodesize::Int
   trees::Vector{BinaryTree}
+  ntry::Int64
+  nodesize::Int64
+  nrandomcuts::Int64
 end
 
 type Sampler
-  x::Vector{Int}
-  nextIndex::Int
+  x::Vector{Int64}
+  nextIndex::Int64
   Sampler(x) = new(x, 1)
 end
 
@@ -61,8 +62,6 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
     return Leaf(mean(data.y[ids]))
   end
 
-  #y  = data.y[ids]
-  #y2 = data.y2[ids]
   ysum = 0.0
   y2sum = 0.0
 
@@ -71,8 +70,6 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
     y2sum += data.y2[id]
   end
   
-  #ysum  = sum(y)
-  #y2sum = sum(y2)
   varTotal = y2sum / length(ids) - (ysum / length(ids)) ^ 2
   if varTotal < 1e-7
     return Leaf(ysum / length(ids))
@@ -93,28 +90,31 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
     if range[1] == range[2]
       continue
     end
-    ## random cut
-    cut = range[1] + (range[2] - range[1]) * rand()
-    ## finding columns var
-    ysumLeft  = 0.0
-    y2sumLeft = 0.0
-    countLeft = 0
-    #for i in 1:length(ids)
-    for id in ids
-      if data.x[id, col] < cut
-        ysumLeft  += data.y[id]
-        y2sumLeft += data.y2[id]
-        countLeft += 1
+    for ncut = 1:et.nrandomcuts
+      ## random cut
+      cut = range[1] + (range[2] - range[1]) * rand()
+      ## finding columns var
+      ysumLeft  = 0.0
+      y2sumLeft = 0.0
+      countLeft = 0
+      #for i in 1:length(ids)
+      for id in ids
+        if data.x[id, col] < cut
+          ysumLeft  += data.y[id]
+          y2sumLeft += data.y2[id]
+          countLeft += 1
+        end
       end
-    end
-    countRight = length(ids) - countLeft
-    varLeft    = y2sumLeft / countLeft - (ysumLeft / countLeft)^2
-    varRight   = (y2sum - y2sumLeft) / countRight - ((ysum - ysumLeft) / countRight) ^ 2
-    var = countLeft * varLeft + countRight * varRight
-    if var < bestVar
-      bestVar = var
-      bestCol = col
-      bestCut = cut
+      countRight = length(ids) - countLeft
+      varLeft    = y2sumLeft / countLeft - (ysumLeft / countLeft)^2
+      varRight   = (y2sum - y2sumLeft) / countRight - ((ysum - ysumLeft) / countRight) ^ 2
+      var = countLeft * varLeft + countRight * varRight
+      if var < bestVar
+        bestVar = var
+        bestCol = col
+        bestCut = cut
+      end
+
     end
     K += 1
     if K >= et.ntry
@@ -139,12 +139,13 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
 end
 
 function extraTrees(x::Matrix{Float64}, y::Vector{Float64};
-                            ntree    = 500, 
-                            ntry     = max(1, floor(size(x,1) / 3)),
-                            nodesize = 5)
+                            ntree     = 500, 
+                            ntry      = int( max(1, floor(size(x,1) / 3)) ),
+                            nrandomcuts = 1,
+                            nodesize  = 5)
   data  = RegressionData(x, y)
   trees = BinaryTree[]
-  et    = RegressionET(ntry, nodesize, trees)
+  et    = RegressionET(trees, ntry, nodesize, nrandomcuts)
   sampler = Sampler([1:size(x,2)])
   for i in 1:ntree
     push!(trees, trainTree(et, data, 1:length(y), sampler) )
