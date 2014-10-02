@@ -57,22 +57,57 @@ type RegressionData
   RegressionData(x,y) = new(x, y, y.^2, length(y))
 end
 
-function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler)
+type VarScorer
+  ysum::Float64
+  y2sum::Float64
+  n::Int64
+end
+
+function init!(scorer::VarScorer, data::RegressionData, ids)
+  scorer.ysum  = 0.0
+  scorer.y2sum = 0.0
+  scorer.n     = length(ids)
+  for id = ids
+    scorer.ysum  += data.y[id]
+    scorer.y2sum += data.y2[id]
+  end
+end
+
+function isConstant(scorer::VarScorer)
+  scorer.y2sum / scorer.n - (scorer.ysum / scorer.n) ^ 2 < 1e-7
+end
+
+## return variance for the given cut
+function getScore(scorer::VarScorer, data::RegressionData, ids, col::Int64, cut::Float64)
+  ## finding columns var
+  ysumLeft  = 0.0
+  y2sumLeft = 0.0
+  countLeft = 0
+
+  for id in ids
+    if data.x[id, col] < cut
+      ysumLeft  += data.y[id]
+      y2sumLeft += data.y2[id]
+      countLeft += 1
+    end
+  end
+  countRight = length(ids) - countLeft
+  varLeft    = y2sumLeft / countLeft - (ysumLeft / countLeft)^2
+  varRight   = (scorer.y2sum - y2sumLeft) / countRight - ((scorer.ysum - ysumLeft) / countRight) ^ 2
+  var = countLeft * varLeft + countRight * varRight
+  return var
+end
+
+function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler, scorer::VarScorer)
   if length(ids) < et.nodesize
     return Leaf(mean(data.y[ids]))
   end
 
-  ysum = 0.0
-  y2sum = 0.0
-
-  for id = ids
-    ysum += data.y[id]
-    y2sum += data.y2[id]
-  end
+  ## initialize scorer for current node
+  init!(scorer, data, ids)
   
-  varTotal = y2sum / length(ids) - (ysum / length(ids)) ^ 2
-  if varTotal < 1e-7
-    return Leaf(ysum / length(ids))
+  if isConstant(scorer)
+    return Leaf(scorer.ysum / length(ids))
   end
   
   bestVar = Inf
@@ -93,22 +128,8 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
     for ncut = 1:et.nrandomcuts
       ## random cut
       cut = range[1] + (range[2] - range[1]) * rand()
-      ## finding columns var
-      ysumLeft  = 0.0
-      y2sumLeft = 0.0
-      countLeft = 0
-      #for i in 1:length(ids)
-      for id in ids
-        if data.x[id, col] < cut
-          ysumLeft  += data.y[id]
-          y2sumLeft += data.y2[id]
-          countLeft += 1
-        end
-      end
-      countRight = length(ids) - countLeft
-      varLeft    = y2sumLeft / countLeft - (ysumLeft / countLeft)^2
-      varRight   = (y2sum - y2sumLeft) / countRight - ((ysum - ysumLeft) / countRight) ^ 2
-      var = countLeft * varLeft + countRight * varRight
+
+      var = getScore(scorer, data, ids, col, cut)
       if var < bestVar
         bestVar = var
         bestCol = col
@@ -132,8 +153,8 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
     end
   end
   
-  leftNode  = trainTree(et, data, idsLeft, sampler)
-  rightNode = trainTree(et, data, idsRight, sampler)
+  leftNode  = trainTree(et, data, idsLeft, sampler, scorer)
+  rightNode = trainTree(et, data, idsRight, sampler, scorer)
   
   return Node(leftNode, rightNode, bestCol, bestCut)
 end
@@ -146,9 +167,10 @@ function extraTrees(x::Matrix{Float64}, y::Vector{Float64};
   data  = RegressionData(x, y)
   trees = BinaryTree[]
   et    = RegressionET(trees, ntry, nodesize, nrandomcuts)
+  scorer  = VarScorer(0.0, 0.0, 0)
   sampler = Sampler([1:size(x,2)])
   for i in 1:ntree
-    push!(trees, trainTree(et, data, 1:length(y), sampler) )
+    push!(trees, trainTree(et, data, 1:length(y), sampler, scorer) )
   end
   return et
 end
