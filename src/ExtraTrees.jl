@@ -61,11 +61,18 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
     return Leaf(mean(data.y[ids]))
   end
 
-  y  = data.y[ids]
-  y2 = data.y2[ids]
+  #y  = data.y[ids]
+  #y2 = data.y2[ids]
+  ysum = 0.0
+  y2sum = 0.0
+
+  for id = ids
+    ysum += data.y[id]
+    y2sum += data.y2[id]
+  end
   
-  ysum  = sum(y)
-  y2sum = sum(y2)
+  #ysum  = sum(y)
+  #y2sum = sum(y2)
   varTotal = y2sum / length(ids) - (ysum / length(ids)) ^ 2
   if varTotal < 1e-7
     return Leaf(ysum / length(ids))
@@ -92,10 +99,11 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
     ysumLeft  = 0.0
     y2sumLeft = 0.0
     countLeft = 0
-    for i in 1:length(ids)
-      if data.x[ids[i], col] < cut
-        ysumLeft  += y[i]
-        y2sumLeft += y2[i]
+    #for i in 1:length(ids)
+    for id in ids
+      if data.x[id, col] < cut
+        ysumLeft  += data.y[id]
+        y2sumLeft += data.y2[id]
         countLeft += 1
       end
     end
