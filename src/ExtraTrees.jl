@@ -1,7 +1,5 @@
 module ExtraTrees
 
-using Distributions
-
 export extraTrees
 export predict
 
