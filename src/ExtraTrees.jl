@@ -98,6 +98,21 @@ function getScore(scorer::VarScorer, data::RegressionData, ids, col::Int64, cut:
   return var
 end
 
+function extrema(x::Matrix{Float64}, ids, col::Int64)
+  min = Inf
+  max = -Inf
+  for id = ids
+    xv = x[id,col]
+    if xv < min
+      min = xv
+    end
+    if xv > max
+      max = xv
+    end
+  end
+  (min,max)
+end
+
 function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler, scorer::VarScorer)
   if length(ids) < et.nodesize
     return Leaf(mean(data.y[ids]))
@@ -121,7 +136,7 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
   K = 0
   while hasNext(sampler)
     col = next!(sampler)
-    range = extrema(data.x[ids,col])
+    range = extrema(data.x, ids, col)
     if range[1] == range[2]
       continue
     end
@@ -135,7 +150,6 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
         bestCol = col
         bestCut = cut
       end
-
     end
     K += 1
     if K >= et.ntry
