@@ -46,8 +46,8 @@ function next!(s::Sampler)
   return tmp
 end
 
-type RegressionData
-  x::Matrix{Float64}
+type RegressionData{T}
+  x::T
   y::Vector{Float64}
   y2::Vector{Float64}
   N::Int
@@ -171,12 +171,12 @@ function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler
   return Node(leftNode, rightNode, bestCol, bestCut)
 end
 
-function extraTrees(x::Matrix{Float64}, y::Vector{Float64};
+function extraTrees(x, y::Vector{Float64};
                             ntree     = 500, 
                             ntry      = int( max(1, floor(size(x,1) / 3)) ),
                             nrandomcuts = 1,
                             nodesize  = 5)
-  data  = RegressionData(x, y)
+  data  = RegressionData{typeof(x)}(x, y)
   trees = BinaryTree[]
   et    = RegressionET(trees, ntry, nodesize, nrandomcuts)
   scorer  = VarScorer(0.0, 0.0, 0)
