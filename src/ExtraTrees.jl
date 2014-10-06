@@ -71,6 +71,12 @@ function init!(scorer::VarScorer, data::RegressionData, ids)
   end
 end
 
+function init!(scorer::VarScorer, y, y2, ids)
+  scorer.ysum  = sum(y)
+  scorer.y2sum = sum(y2)
+  scorer.n     = length(ids)
+end
+
 function isConstant(scorer::VarScorer)
   scorer.y2sum / scorer.n - (scorer.ysum / scorer.n) ^ 2 < 1e-7
 end
@@ -109,6 +115,22 @@ function extrema(x::Matrix{Float64}, ids, col::Int64)
     end
   end
   (min,max)
+end
+
+function trainTree(et::RegressionET,
+                   data::RegressionData{SparseMatrixCSC{Bool,Int64}},
+                   ids,
+                   sampler::Sampler,
+                   scorer::VarScorer)
+  if length(ids) < et.nodesize
+    return Leaf(mean(data.y[ids]))
+  end
+  Nsamples = size(data.x, 1)
+  sids = sparsevec(ids, 1, Nsamples)'
+  y    = sparsevec(ids, data.y[ids], Nsamples)'
+  y2   = sparsevec(ids, data.y2[ids], Nsamples)'
+  ## TODO
+  init!(scorer, y, y2, ids)
 end
 
 function trainTree(et::RegressionET, data::RegressionData, ids, sampler::Sampler, scorer::VarScorer)
